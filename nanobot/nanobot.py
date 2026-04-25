@@ -168,6 +168,7 @@ def _make_provider(config: Any) -> Any:
             api_base=config.get_api_base(model),
             default_model=model,
             extra_headers=p.extra_headers if p else None,
+            wire_api=p.wire_api if p else "auto",
             spec=spec,
         )
 

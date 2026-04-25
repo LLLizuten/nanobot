@@ -104,6 +104,7 @@ class ProviderConfig(Base):
     api_key: str | None = None
     api_base: str | None = None
     extra_headers: dict[str, str] | None = None  # Custom headers (e.g. APP-Code for AiHubMix)
+    wire_api: Literal["auto", "chat_completions", "responses"] = "auto"
 
 
 class ProvidersConfig(Base):

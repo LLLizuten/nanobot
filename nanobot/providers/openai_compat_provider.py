@@ -181,11 +181,13 @@ class OpenAICompatProvider(LLMProvider):
         api_base: str | None = None,
         default_model: str = "gpt-4o",
         extra_headers: dict[str, str] | None = None,
+        wire_api: str = "auto",
         spec: ProviderSpec | None = None,
     ):
         super().__init__(api_key, api_base)
         self.default_model = default_model
         self.extra_headers = extra_headers or {}
+        self.wire_api = wire_api
         self._spec = spec
 
         if api_key and spec and spec.env_key:
@@ -432,6 +434,10 @@ class OpenAICompatProvider(LLMProvider):
         reasoning_effort: str | None,
     ) -> bool:
         """Use Responses API only for direct OpenAI requests that benefit from it."""
+        if self.wire_api == "responses":
+            return True
+        if self.wire_api == "chat_completions":
+            return False
         if self._spec and self._spec.name != "openai":
             return False
         if not _is_direct_openai_base(self._effective_base):
@@ -973,6 +979,8 @@ class OpenAICompatProvider(LLMProvider):
                     self._record_responses_success(model, reasoning_effort)
                     return result
                 except Exception as responses_error:
+                    if self.wire_api == "responses":
+                        raise
                     if not self._should_fallback_from_responses_error(responses_error):
                         raise
                     self._record_responses_failure(model, reasoning_effort)
@@ -1031,6 +1039,8 @@ class OpenAICompatProvider(LLMProvider):
                         reasoning_content=reasoning_content,
                     )
                 except Exception as responses_error:
+                    if self.wire_api == "responses":
+                        raise
                     if not self._should_fallback_from_responses_error(responses_error):
                         raise
                     self._record_responses_failure(model, reasoning_effort)
