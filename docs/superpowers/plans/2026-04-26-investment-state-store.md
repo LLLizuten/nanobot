@@ -209,7 +209,7 @@ class InvestmentStore:
 Run: `pytest tests/investment/test_state_store.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/store.py tests/investment/test_state_store.py
