@@ -11,6 +11,12 @@ pytest
 ruff check .
 ruff format .
 ```
+If you use `uv`, make sure commands run with a `uv`-managed Python `3.11+` interpreter. Having `uv` installed is not enough if your shell still resolves to an older system Python such as `3.9`. A reliable flow is:
+```bash
+uv run --python 3.12 --extra dev pytest
+uv run --python 3.12 --extra dev ruff check .
+uv run --python 3.12 --extra dev ruff format .
+```
 Use `pytest --cov=nanobot` when touching core runtime paths. For the WebUI:
 ```bash
 cd webui

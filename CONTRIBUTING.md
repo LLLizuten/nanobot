@@ -87,6 +87,17 @@ ruff check nanobot/
 ruff format nanobot/
 ```
 
+If you prefer `uv`, run development commands with a `uv`-managed Python `3.11+` interpreter. Installing `uv` alone does not guarantee that `python` or `pytest` in your shell already meets the repo requirement.
+
+```bash
+# Run tests with a uv-managed interpreter and dev dependencies
+uv run --python 3.12 --extra dev pytest
+
+# Lint and format with the same interpreter/tool set
+uv run --python 3.12 --extra dev ruff check nanobot/
+uv run --python 3.12 --extra dev ruff format nanobot/
+```
+
 ## Code Style
 
 We care about more than passing lint. We want nanobot to stay small, calm, and readable.
