@@ -26,14 +26,20 @@ from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.notebook import NotebookEditTool
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.search import GlobTool, GrepTool
-from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.self import MyTool
+from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
-from nanobot.command import CommandContext, CommandRouter, register_builtin_commands
+from nanobot.command import (
+    CommandContext,
+    CommandRouter,
+    register_builtin_commands,
+    register_investment_commands,
+)
 from nanobot.config.schema import AgentDefaults
+from nanobot.investment.store import InvestmentStore
 from nanobot.providers.base import LLMProvider
 from nanobot.session.manager import Session, SessionManager
 from nanobot.utils.document import extract_documents
@@ -247,6 +253,8 @@ class AgentLoop:
             provider=provider,
             model=self.model,
         )
+        self.investment_store = InvestmentStore(self.workspace)
+        self.investment_lock = asyncio.Lock()
         self._register_default_tools()
         if _tc.my.enable:
             self.tools.register(MyTool(loop=self, modify_allowed=_tc.my.allow_set))
@@ -254,6 +262,7 @@ class AgentLoop:
         self._current_iteration: int = 0
         self.commands = CommandRouter()
         register_builtin_commands(self.commands)
+        register_investment_commands(self.commands)
 
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""

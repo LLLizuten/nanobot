@@ -4,7 +4,7 @@
 
 **Goal:** 让用户通过聊天命令维护投资助手的一期状态，包括自选池、持仓、风险模式和扫描周期。
 
-**Architecture:** 在 `nanobot.command` 下增加独立的投资命令模块，用单一前缀 `/invest` 承载子命令。命令处理层只负责解析、校验与格式化回复，真实读写统一委托给 `InvestmentStore`。
+**Architecture:** 在 `nanobot.command` 下增加独立的投资命令模块，用单一前缀 `/invest` 承载子命令。命令处理层只负责解析、校验与格式化回复，真实读写统一委托给 `InvestmentStore`。命令层的校验应遵守现有投资领域模型约束：`kind` 只接受 `stock|etf`，`mode` 只接受 `conservative|balanced|aggressive`，`tranche_state` 只接受 `flat|entry|add1|full`，`cost_basis`/`shares`/`interval` 必须是正数语义。`AgentLoop` 在初始化阶段持有 `InvestmentStore(self.workspace)` 并注册投资命令，这样 `agent`、`serve`、`gateway` 三类入口都能复用同一套行为。
 
 **Tech Stack:** Python 3.11, existing `CommandRouter`, pytest, workspace-backed JSON state
 
@@ -16,7 +16,7 @@
 - Create: `nanobot/command/investment.py`
 - Test: `tests/command/test_investment_commands.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -107,12 +107,12 @@ async def test_invest_position_and_interval_are_persisted(tmp_path):
     assert state.scan_period_minutes == 30
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/command/test_investment_commands.py -v`
-Expected: FAIL because `/invest` is not registered and `loop.investment_store` does not exist
+Expected: FAIL with `ImportError` because `nanobot.command.investment` does not exist yet
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/command/investment.py
@@ -152,6 +152,12 @@ async def cmd_invest(ctx: CommandContext) -> OutboundMessage:
         content = f"Removed {symbol} from watchlist."
     elif len(tokens) == 8 and tokens[:2] == ["position", "set"]:
         symbol, kind, cost_basis, tranche_state, latest_buy_date, shares = tokens[2:]
+        if tranche_state not in {"flat", "entry", "add1", "full"}:
+            return OutboundMessage(
+                channel=ctx.msg.channel,
+                chat_id=ctx.msg.chat_id,
+                content="Invalid tranche state. Use flat, entry, add1, or full.",
+            )
         state.positions[symbol] = PositionRecord(
             symbol=symbol,
             kind=kind,
@@ -185,7 +191,7 @@ async def cmd_invest(ctx: CommandContext) -> OutboundMessage:
     return OutboundMessage(channel=ctx.msg.channel, chat_id=ctx.msg.chat_id, content=content)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/command/test_investment_commands.py -v`
 Expected: PASS
@@ -203,25 +209,37 @@ git commit -m "feat: add investment slash commands"
 - Modify: `nanobot/agent/loop.py`
 - Modify: `nanobot/command/__init__.py`
 - Modify: `nanobot/command/builtin.py`
-- Test: `tests/cli/test_restart_command.py`
+- Modify: `tests/command/test_router_dispatchable.py`
+- Test: `tests/command/test_investment_commands.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
+from nanobot.command import register_builtin_commands, register_investment_commands
 from nanobot.command.builtin import build_help_text
+from nanobot.command.router import CommandRouter
 
 
 def test_help_lists_investment_commands() -> None:
     help_text = build_help_text()
     assert "/invest" in help_text
+
+
+def test_router_recognizes_investment_commands() -> None:
+    router = CommandRouter()
+    register_builtin_commands(router)
+    register_investment_commands(router)
+
+    assert router.is_dispatchable_command("/invest")
+    assert router.is_dispatchable_command("/invest show")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/cli/test_restart_command.py::test_help_lists_investment_commands -v`
-Expected: FAIL because help text does not mention `/invest`
+Run: `pytest tests/command/test_router_dispatchable.py -k invest -v`
+Expected: FAIL because investment commands are not exported or registered yet
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/command/__init__.py
@@ -258,22 +276,27 @@ register_investment_commands(self.commands)
 def build_help_text() -> str:
     lines = [
         "🐈 nanobot commands:",
-        "",
+        "/new — Stop current task and start a new conversation",
+        "/stop — Stop the current task",
+        "/restart — Restart the bot",
         "/status — Show bot status",
+        "/dream — Manually trigger Dream consolidation",
+        "/dream-log — Show what the last Dream changed",
+        "/dream-restore — Revert memory to a previous state",
         "/help — Show available commands",
         "/invest — Manage investment assistant state",
     ]
     return "\n".join(lines)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/cli/test_restart_command.py::test_help_lists_investment_commands tests/command/test_investment_commands.py -v`
+Run: `pytest tests/command/test_investment_commands.py tests/command/test_router_dispatchable.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add nanobot/agent/loop.py nanobot/command/__init__.py nanobot/command/builtin.py tests/cli/test_restart_command.py
+git add nanobot/agent/loop.py nanobot/command/__init__.py nanobot/command/builtin.py tests/command/test_router_dispatchable.py tests/command/test_investment_commands.py
 git commit -m "feat: register investment commands"
 ```

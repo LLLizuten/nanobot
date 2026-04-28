@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from nanobot.command.builtin import register_builtin_commands
+from nanobot.command.builtin import build_help_text, register_builtin_commands
+from nanobot.command.investment import register_investment_commands
 from nanobot.command.router import CommandContext, CommandRouter
 
 
@@ -17,6 +18,7 @@ class TestIsDispatchableCommand:
     def router(self) -> CommandRouter:
         r = CommandRouter()
         register_builtin_commands(r)
+        register_investment_commands(r)
         return r
 
     def test_exact_commands_match(self, router: CommandRouter) -> None:
@@ -25,10 +27,12 @@ class TestIsDispatchableCommand:
         assert router.is_dispatchable_command("/dream")
         assert router.is_dispatchable_command("/dream-log")
         assert router.is_dispatchable_command("/dream-restore")
+        assert router.is_dispatchable_command("/invest")
 
     def test_prefix_commands_match(self, router: CommandRouter) -> None:
         assert router.is_dispatchable_command("/dream-log abc123")
         assert router.is_dispatchable_command("/dream-restore def456")
+        assert router.is_dispatchable_command("/invest show")
 
     def test_priority_commands_not_matched(self, router: CommandRouter) -> None:
         # Priority commands are NOT in the dispatchable tiers — they are
@@ -52,6 +56,9 @@ class TestIsDispatchableCommand:
         assert not router.is_dispatchable_command("/unknown")
         assert not router.is_dispatchable_command("/foo bar")
 
+    def test_help_text_includes_invest_command(self) -> None:
+        assert "/invest" in build_help_text()
+
 
 class TestMidTurnCommandDispatchedDirectly:
     """Verify that commands matching is_dispatchable_command() are dispatched
@@ -61,6 +68,7 @@ class TestMidTurnCommandDispatchedDirectly:
     def router(self) -> CommandRouter:
         r = CommandRouter()
         register_builtin_commands(r)
+        register_investment_commands(r)
         return r
 
     @pytest.fixture()

@@ -5,7 +5,7 @@
 ## 推荐顺序
 
 1. [状态存储计划](./2026-04-26-investment-state-store.md) `已完成`
-2. [聊天命令计划](./2026-04-26-investment-chat-commands.md)
+2. [聊天命令计划](./2026-04-26-investment-chat-commands.md) `已完成`
 3. [技术信号引擎计划](./2026-04-26-investment-signal-engine.md)
 4. [持仓决策与播报计划](./2026-04-26-investment-decisions-and-reporting.md)
 5. [实时数据与调度计划](./2026-04-26-investment-scheduler-and-live-data.md)
@@ -35,4 +35,5 @@
 ## 当前状态
 
 - 计划 1：已完成
-- 下一步建议：从 [聊天命令计划](./2026-04-26-investment-chat-commands.md) 开始
+- 计划 2：已完成
+- 下一步建议：从 [技术信号引擎计划](./2026-04-26-investment-signal-engine.md) 开始
