@@ -16,7 +16,7 @@
 - Create: `nanobot/investment/market.py`
 - Test: `tests/investment/test_market.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from datetime import datetime
@@ -36,12 +36,12 @@ def test_completed_bars_only_drops_unfinished_tail() -> None:
     assert result[0].close == 2
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/investment/test_market.py -v`
 Expected: FAIL with `ImportError: cannot import name 'Bar'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/investment/market.py
@@ -71,12 +71,12 @@ def completed_bars_only(bars: list[Bar]) -> list[Bar]:
     return [bar for bar in bars if bar.complete]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/investment/test_market.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/market.py tests/investment/test_market.py
@@ -89,7 +89,7 @@ git commit -m "feat: add investment market bar model"
 - Create: `nanobot/investment/signals.py`
 - Test: `tests/investment/test_signals.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from datetime import datetime, timedelta
@@ -133,12 +133,12 @@ def test_conservative_mode_requires_stronger_confirmation() -> None:
     assert signal.state in {"watch", "entry"}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/investment/test_signals.py -v`
 Expected: FAIL with `ImportError: cannot import name 'evaluate_trend_breakout'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/investment/signals.py
@@ -199,14 +199,24 @@ def evaluate_trend_breakout(bars: list[Bar], mode: RiskMode) -> TechnicalSignal:
     )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/investment/test_market.py tests/investment/test_signals.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/signals.py tests/investment/test_signals.py
 git commit -m "feat: add trend breakout signal engine"
 ```
+
+## 当前执行状态
+
+- Task 1：已完成
+- Task 2：已完成
+- `Step 5: Commit`：已完成
+- 代码提交：`ee19286` `feat: add investment signal engine`
+- 当前验证：
+  - `uv run --python 3.12 --extra dev pytest tests/investment/test_market.py tests/investment/test_signals.py -q`
+  - `uv run --python 3.12 --extra dev pytest tests/investment/test_state_models.py tests/investment/test_state_store.py tests/investment/test_market.py tests/investment/test_signals.py -q`
