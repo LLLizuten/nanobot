@@ -194,7 +194,7 @@ def decide_recommendation(
 Run: `pytest tests/investment/test_decisions.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/decisions.py tests/investment/test_decisions.py
@@ -290,7 +290,7 @@ def format_cycle_report(
 Run: `pytest tests/investment/test_reporting.py tests/investment/test_decisions.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/reporting.py tests/investment/test_reporting.py
@@ -301,7 +301,8 @@ git commit -m "feat: add investment report formatting"
 
 - Task 1：已完成
 - Task 2：已完成
-- `Step 5: Commit`：未执行
+- `Step 5: Commit`：已完成
+- 代码提交：`32e7b85` `feat: add investment decisions and reporting`
 - 当前验证：
   - `uv run --python 3.12 --extra dev pytest tests/investment/test_decisions.py tests/investment/test_reporting.py -q`
   - `uv run --python 3.12 --extra dev pytest tests/investment -q`
