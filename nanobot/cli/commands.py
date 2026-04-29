@@ -533,6 +533,27 @@ def _migrate_cron_store(config: "Config") -> None:
         shutil.move(str(legacy_path), str(new_path))
 
 
+def _build_investment_service(
+    *,
+    config: Config,
+    bus: Any,
+    session_manager: Any,
+    enabled_channels: set[str],
+):
+    """Create the investment scan service with workspace-scoped dependencies."""
+    from nanobot.investment.data import CHINA_MARKET_TIMEZONE, AkshareMarketDataProvider
+    from nanobot.investment.service import InvestmentAssistantService
+
+    return InvestmentAssistantService(
+        workspace=config.workspace_path,
+        session_manager=session_manager,
+        bus=bus,
+        market_data=AkshareMarketDataProvider(timezone=CHINA_MARKET_TIMEZONE),
+        timezone=CHINA_MARKET_TIMEZONE,
+        enabled_channels=enabled_channels,
+    )
+
+
 # ============================================================================
 # OpenAI-Compatible API Server
 # ============================================================================
@@ -767,6 +788,12 @@ def _run_gateway(
     # Create channel manager (forwards SessionManager so the WebSocket channel
     # can serve the embedded webui's REST surface).
     channels = ChannelManager(config, bus, session_manager=session_manager)
+    investment_service = _build_investment_service(
+        config=config,
+        bus=bus,
+        session_manager=session_manager,
+        enabled_channels=set(channels.enabled_channels),
+    )
 
     def _pick_heartbeat_target() -> tuple[str, str]:
         """Pick a routable channel/chat target for heartbeat-triggered messages."""
@@ -926,6 +953,7 @@ def _run_gateway(
         try:
             await cron.start()
             await heartbeat.start()
+            await investment_service.start()
             tasks = [
                 agent.run(),
                 channels.start_all(),
@@ -943,6 +971,7 @@ def _run_gateway(
             console.print(traceback.format_exc())
         finally:
             await agent.close_mcp()
+            investment_service.stop()
             heartbeat.stop()
             cron.stop()
             agent.stop()

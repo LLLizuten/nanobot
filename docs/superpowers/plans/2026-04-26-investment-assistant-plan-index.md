@@ -8,7 +8,7 @@
 2. [聊天命令计划](./2026-04-26-investment-chat-commands.md) `已完成`
 3. [技术信号引擎计划](./2026-04-26-investment-signal-engine.md) `已完成`
 4. [持仓决策与播报计划](./2026-04-26-investment-decisions-and-reporting.md) `已完成`
-5. [实时数据与调度计划](./2026-04-26-investment-scheduler-and-live-data.md)
+5. [实时数据与调度计划](./2026-04-26-investment-scheduler-and-live-data.md) `已完成`
 
 ## 依赖关系
 
@@ -38,4 +38,5 @@
 - 计划 2：已完成
 - 计划 3：已完成
 - 计划 4：已完成
-- 下一步建议：从 [实时数据与调度计划](./2026-04-26-investment-scheduler-and-live-data.md) 开始
+- 计划 5：已完成
+- 当前建议：投资助手五份一期计划已全部落地；后续如继续推进，优先补“减仓/卖出”信号与更完整交易日历支持

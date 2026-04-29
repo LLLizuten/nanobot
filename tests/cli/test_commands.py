@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
+import nanobot.cli.commands as commands_module
 from nanobot.bus.events import OutboundMessage
 from nanobot.cli.commands import _make_provider, app
 from nanobot.config.schema import Config
@@ -923,6 +924,52 @@ def test_gateway_uses_workspace_directory_for_cron_store(monkeypatch, tmp_path: 
     assert seen["cron_store"] == config.workspace_path / "cron" / "jobs.json"
 
 
+def test_build_investment_service_uses_workspace_scoped_dependencies(tmp_path: Path) -> None:
+    from nanobot.investment.service import InvestmentAssistantService
+
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path / "workspace")
+    config.agents.defaults.timezone = "Asia/Shanghai"
+    bus = object()
+    session_manager = object()
+
+    service = commands_module._build_investment_service(
+        config=config,
+        bus=bus,
+        session_manager=session_manager,
+        enabled_channels={"weixin", "telegram"},
+    )
+
+    assert isinstance(service, InvestmentAssistantService)
+    assert service.workspace == config.workspace_path
+    assert service.store.path == config.workspace_path / "investment" / "state.json"
+    assert service.bus is bus
+    assert service.session_manager is session_manager
+    assert service.enabled_channels == {"weixin", "telegram"}
+    assert service.market_data.__class__.__name__ == "AkshareMarketDataProvider"
+    assert service.market_data.timezone == "Asia/Shanghai"
+
+
+def test_build_investment_service_uses_china_market_timezone_when_global_timezone_is_non_china(
+    tmp_path: Path,
+) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path / "workspace")
+    config.agents.defaults.timezone = "America/New_York"
+    bus = object()
+    session_manager = object()
+
+    service = commands_module._build_investment_service(
+        config=config,
+        bus=bus,
+        session_manager=session_manager,
+        enabled_channels={"weixin"},
+    )
+
+    assert service.timezone == "Asia/Shanghai"
+    assert service.market_data.timezone == "Asia/Shanghai"
+
+
 def test_gateway_cron_evaluator_receives_scheduled_reminder_context(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1121,6 +1168,136 @@ def test_gateway_cron_job_suppresses_intermediate_progress(
     asyncio.run(seen["on_progress"]("tool_hint", "🔧 $ echo test"))
     # Nothing published to bus since evaluator rejected
     bus.publish_outbound.assert_not_awaited()
+
+
+def test_gateway_starts_and_stops_investment_service(monkeypatch, tmp_path: Path) -> None:
+    config_file = _write_instance_config(tmp_path)
+    config = Config()
+    bus = object()
+    session_manager = object()
+    lifecycle: list[str] = []
+    seen: dict[str, object] = {}
+
+    class _FakeDream:
+        model = None
+        max_batch_size = 0
+        max_iterations = 0
+        annotate_line_ages = False
+
+        async def run(self) -> None:
+            return None
+
+    class _FakeAgentLoop:
+        def __init__(self, **_kwargs) -> None:
+            self.model = "test-model"
+            self.dream = _FakeDream()
+            self.tools = {}
+
+        async def run(self) -> None:
+            await asyncio.Event().wait()
+
+        async def close_mcp(self) -> None:
+            lifecycle.append("agent.close_mcp")
+
+        def stop(self) -> None:
+            lifecycle.append("agent.stop")
+
+    class _FakeChannelManager:
+        def __init__(self, _config, _bus, **kwargs) -> None:
+            seen["channel_session_manager"] = kwargs["session_manager"]
+            self.enabled_channels = ["weixin", "telegram"]
+
+        async def start_all(self) -> None:
+            await asyncio.Event().wait()
+
+        async def stop_all(self) -> None:
+            lifecycle.append("channels.stop_all")
+
+    class _FakeCronService:
+        def __init__(self, _store_path: Path) -> None:
+            self.on_job = None
+
+        async def start(self) -> None:
+            lifecycle.append("cron.start")
+
+        def stop(self) -> None:
+            lifecycle.append("cron.stop")
+
+        def status(self) -> dict[str, int]:
+            return {"jobs": 0}
+
+        def register_system_job(self, _job) -> None:
+            return None
+
+    class _FakeHeartbeatService:
+        def __init__(self, **_kwargs) -> None:
+            return None
+
+        async def start(self) -> None:
+            lifecycle.append("heartbeat.start")
+
+        def stop(self) -> None:
+            lifecycle.append("heartbeat.stop")
+
+    class _FakeInvestmentService:
+        async def start(self) -> None:
+            lifecycle.append("investment.start")
+
+        def stop(self) -> None:
+            lifecycle.append("investment.stop")
+
+    class _FakeServer:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+        async def serve_forever(self) -> None:
+            raise _StopGatewayError("stop")
+
+    async def _fake_start_server(_handler, _host: str, _port: int):
+        return _FakeServer()
+
+    def _fake_build_investment_service(*, config, bus, session_manager, enabled_channels):
+        seen["investment_config"] = config
+        seen["investment_bus"] = bus
+        seen["investment_session_manager"] = session_manager
+        seen["enabled_channels"] = enabled_channels
+        return _FakeInvestmentService()
+
+    _patch_cli_command_runtime(
+        monkeypatch,
+        config,
+        message_bus=lambda: bus,
+        session_manager=lambda _workspace: session_manager,
+    )
+    monkeypatch.setattr("nanobot.agent.loop.AgentLoop", _FakeAgentLoop)
+    monkeypatch.setattr("nanobot.channels.manager.ChannelManager", _FakeChannelManager)
+    monkeypatch.setattr("nanobot.cron.service.CronService", _FakeCronService)
+    monkeypatch.setattr("nanobot.heartbeat.service.HeartbeatService", _FakeHeartbeatService)
+    monkeypatch.setattr("nanobot.cli.commands._build_investment_service", _fake_build_investment_service)
+    monkeypatch.setattr("asyncio.start_server", _fake_start_server)
+
+    result = runner.invoke(app, ["gateway", "--config", str(config_file)])
+
+    assert result.exit_code == 0
+    assert seen["investment_config"] is config
+    assert seen["investment_bus"] is bus
+    assert seen["investment_session_manager"] is session_manager
+    assert seen["channel_session_manager"] is session_manager
+    assert seen["enabled_channels"] == {"weixin", "telegram"}
+    assert lifecycle == [
+        "cron.start",
+        "heartbeat.start",
+        "investment.start",
+        "agent.close_mcp",
+        "investment.stop",
+        "heartbeat.stop",
+        "cron.stop",
+        "agent.stop",
+        "channels.stop_all",
+    ]
 
 
 def test_gateway_workspace_override_does_not_migrate_legacy_cron(

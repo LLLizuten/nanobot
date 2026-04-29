@@ -89,6 +89,9 @@ discord = [
 langsmith = [
     "langsmith>=0.1.0",
 ]
+investment = [
+    "akshare>=1.16.72,<2.0.0",
+]
 pdf = [
     "pymupdf>=1.25.0",
 ]
