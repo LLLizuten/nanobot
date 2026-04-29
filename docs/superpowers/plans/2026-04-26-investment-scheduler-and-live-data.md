@@ -19,7 +19,7 @@
 - Create: `nanobot/investment/data.py`
 - Test: `tests/investment/test_data_provider.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from datetime import datetime
@@ -92,12 +92,12 @@ def test_provider_raises_clear_error_when_optional_dependency_is_missing(monkeyp
         )
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/investment/test_data_provider.py -v`
 Expected: FAIL with `ImportError: cannot import name 'AkshareMarketDataProvider'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```toml
 # pyproject.toml
@@ -163,12 +163,12 @@ class AkshareMarketDataProvider:
         ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/investment/test_data_provider.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml nanobot/investment/data.py tests/investment/test_data_provider.py
@@ -181,7 +181,7 @@ git commit -m "feat: add akshare investment data provider"
 - Create: `nanobot/investment/service.py`
 - Test: `tests/investment/test_service.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from datetime import date, datetime, timedelta
@@ -290,12 +290,12 @@ async def test_scan_once_publishes_only_once_per_completed_cycle(tmp_path):
     assert "正式信号" in bus.published[0].content
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/investment/test_service.py -v`
 Expected: FAIL with `ImportError: cannot import name 'InvestmentAssistantService'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/investment/service.py
@@ -489,12 +489,12 @@ class InvestmentAssistantService:
         return False
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/investment/test_service.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/service.py tests/investment/test_service.py
@@ -507,7 +507,7 @@ git commit -m "feat: add investment assistant background service"
 - Modify: `nanobot/cli/commands.py`
 - Test: `tests/cli/test_commands.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from nanobot.cli.commands import _build_investment_service
@@ -535,12 +535,12 @@ def test_build_investment_service_uses_workspace_scoped_dependencies(tmp_path):
     assert service.session_manager is session_manager
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/cli/test_commands.py -k investment_service -v`
 Expected: FAIL with `ImportError` or `AttributeError` because `_build_investment_service` does not exist yet
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # nanobot/cli/commands.py
@@ -598,12 +598,12 @@ async def run():
         await channels.stop_all()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest tests/cli/test_commands.py -k investment_service -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/cli/commands.py tests/cli/test_commands.py
