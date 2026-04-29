@@ -196,7 +196,7 @@ async def cmd_invest(ctx: CommandContext) -> OutboundMessage:
 Run: `pytest tests/command/test_investment_commands.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/command/investment.py tests/command/test_investment_commands.py
@@ -294,7 +294,7 @@ def build_help_text() -> str:
 Run: `pytest tests/command/test_investment_commands.py tests/command/test_router_dispatchable.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/agent/loop.py nanobot/command/__init__.py nanobot/command/builtin.py tests/command/test_router_dispatchable.py tests/command/test_investment_commands.py

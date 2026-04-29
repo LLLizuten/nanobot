@@ -126,7 +126,7 @@ class InvestmentState:
 Run: `pytest tests/investment/test_state_models.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add nanobot/investment/__init__.py nanobot/investment/models.py tests/investment/test_state_models.py
