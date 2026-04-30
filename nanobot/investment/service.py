@@ -12,10 +12,10 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 
 from nanobot.bus.events import OutboundMessage
+from nanobot.investment.analysis import analyze_symbol
 from nanobot.investment.data import OptionalDependencyMissingError, resolve_market_timezone
-from nanobot.investment.decisions import Recommendation, decide_recommendation
+from nanobot.investment.decisions import Recommendation
 from nanobot.investment.reporting import FORMAL_ACTIONS, format_cycle_report
-from nanobot.investment.signals import evaluate_trend_breakout
 from nanobot.investment.store import InvestmentStore
 
 
@@ -76,36 +76,29 @@ class InvestmentAssistantService:
 
         for symbol, entry in state.watchlist.items():
             try:
-                bars = self.market_data.fetch_completed_bars(
+                result = analyze_symbol(
+                    market_data=self.market_data,
                     symbol=symbol,
                     kind=entry.kind,
                     period_minutes=state.scan_period_minutes,
-                    limit=120,
+                    mode=state.mode,
+                    position=state.positions.get(symbol),
                 )
             except OptionalDependencyMissingError as exc:
                 logger.warning("Investment service disabled after dependency error: {}", exc)
                 self._dependency_disabled = True
                 return False
             except RuntimeError as exc:
-                logger.warning("Investment scan skipped after runtime error for {}: {}", symbol, exc)
+                logger.warning(
+                    "Investment scan skipped after runtime error for {}: {}", symbol, exc
+                )
                 return False
 
-            if not bars:
+            if result is None:
                 continue
 
-            latest_bar = bars[-1]
-            bar_markers[symbol] = latest_bar.ends_at.isoformat()
-
-            signal = evaluate_trend_breakout(bars, mode=state.mode)
-            recommendations.append(
-                decide_recommendation(
-                    symbol=symbol,
-                    kind=entry.kind,
-                    signal=signal,
-                    position=state.positions.get(symbol),
-                    as_of_date=latest_bar.ends_at.date().isoformat(),
-                )
-            )
+            bar_markers[symbol] = result.latest_bar_ends_at.isoformat()
+            recommendations.append(result.recommendation)
 
         if not bar_markers:
             return False
@@ -174,7 +167,10 @@ class InvestmentAssistantService:
         try:
             return datetime.now(tz=ZoneInfo(self.timezone))
         except Exception:
-            logger.warning("Invalid investment service timezone '{}', falling back to local time", self.timezone)
+            logger.warning(
+                "Invalid investment service timezone '{}', falling back to local time",
+                self.timezone,
+            )
             return datetime.now().astimezone()
 
     async def _run_loop(self) -> None:

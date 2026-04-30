@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from nanobot.investment.decisions import Action, Recommendation
+
+if TYPE_CHECKING:
+    from nanobot.investment.analysis import AnalysisResult
 
 ACTION_LABELS: dict[Action, str] = {
     "buy": "买入",
@@ -59,6 +64,47 @@ def format_cycle_report(
         )
 
     return "\n".join(lines).strip()
+
+
+def format_status_report(result: AnalysisResult) -> str:
+    item = result.recommendation
+    lines = [
+        "【动态状态】",
+        f"最新已收盘周期: {result.latest_bar_ends_at.isoformat()}",
+        f"标的: {item.symbol}",
+        f"资产类型: {result.kind}",
+        f"当前持仓状态: {item.current_tranche}",
+        f"建议动作: {ACTION_LABELS[item.action]}",
+        f"原因: {item.reason}",
+        f"失效条件: {item.invalidation}",
+        f"风险提示: {item.risk_note}",
+        f"当前可执行: {'是' if item.executable else '否'}",
+    ]
+    if item.current_tranche != "flat":
+        lines.append(f"仓位档位: {item.current_tranche}")
+    return "\n".join(lines)
+
+
+def format_positions_status_report(
+    results: list[AnalysisResult],
+    *,
+    failed_symbols: list[str] | None = None,
+) -> str:
+    lines = ["【持仓动态状态】"]
+    for result in results:
+        item = result.recommendation
+        lines.append(
+            (
+                f"{item.symbol}({result.kind}) "
+                f"{item.current_tranche}->{item.target_tranche} "
+                f"{ACTION_LABELS[item.action]} "
+                f"周期={result.latest_bar_ends_at.isoformat()} "
+                f"可执行={'是' if item.executable else '否'}"
+            )
+        )
+    if failed_symbols:
+        lines.append(f"查询失败: {', '.join(failed_symbols)}")
+    return "\n".join(lines)
 
 
 def _changed_formal_recommendations(

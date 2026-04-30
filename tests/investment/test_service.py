@@ -1,4 +1,3 @@
-import asyncio
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -279,7 +278,9 @@ async def test_scan_once_disables_future_scans_after_dependency_error(tmp_path) 
 
 
 @pytest.mark.asyncio
-async def test_scan_once_does_not_disable_future_scans_after_transient_runtime_error(tmp_path) -> None:
+async def test_scan_once_does_not_disable_future_scans_after_transient_runtime_error(
+    tmp_path,
+) -> None:
     _seed_state(tmp_path)
     bus = _FakeBus()
     market_data = _SequenceMarketData([RuntimeError("temporary upstream failure"), _make_bars()])
@@ -325,7 +326,9 @@ async def test_scan_once_skips_publish_when_no_enabled_external_channel(tmp_path
 
 
 @pytest.mark.asyncio
-async def test_scan_once_uses_configured_timezone_for_default_current_time(tmp_path, monkeypatch) -> None:
+async def test_scan_once_uses_configured_timezone_for_default_current_time(
+    tmp_path, monkeypatch
+) -> None:
     _seed_state(tmp_path)
     bus = _FakeBus()
     service = InvestmentAssistantService(
