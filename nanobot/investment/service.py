@@ -13,6 +13,11 @@ from loguru import logger
 
 from nanobot.bus.events import OutboundMessage
 from nanobot.investment.analysis import analyze_symbol
+from nanobot.investment.calendar import (
+    AkshareTradingCalendar,
+    CalendarStatus,
+    TradingCalendarCheck,
+)
 from nanobot.investment.data import OptionalDependencyMissingError, resolve_market_timezone
 from nanobot.investment.decisions import Recommendation
 from nanobot.investment.reporting import FORMAL_ACTIONS, format_cycle_report
@@ -31,6 +36,7 @@ class InvestmentAssistantService:
         enabled_channels: set[str] | None = None,
         poll_interval_s: int = 30,
         is_open_day: Callable[[date], bool] | None = None,
+        trading_calendar: Callable[[date], TradingCalendarCheck] | None = None,
     ) -> None:
         self.workspace = workspace
         self.session_manager = session_manager
@@ -39,13 +45,23 @@ class InvestmentAssistantService:
         self.timezone = resolve_market_timezone(timezone)
         self.enabled_channels = set(enabled_channels or ())
         self.poll_interval_s = poll_interval_s
-        self.is_open_day = is_open_day or (lambda day: day.weekday() < 5)
+        if trading_calendar is not None:
+            self.trading_calendar = trading_calendar
+        elif is_open_day is not None:
+            self.trading_calendar = lambda day: TradingCalendarCheck(
+                status=CalendarStatus.OPEN if is_open_day(day) else CalendarStatus.CLOSED,
+                reason="legacy is_open_day override",
+            )
+        else:
+            default_calendar = AkshareTradingCalendar()
+            self.trading_calendar = default_calendar.check_day
         self.store = InvestmentStore(workspace)
         self._task: asyncio.Task[Any] | None = None
         self._running = False
         self._last_published_bar_markers: dict[str, str] = {}
         self._last_formal_snapshot: dict[str, tuple[str, str, str, bool]] = {}
         self._dependency_disabled = False
+        self._last_calendar_warning: tuple[date, str] | None = None
 
     async def start(self) -> None:
         if self._running:
@@ -132,7 +148,10 @@ class InvestmentAssistantService:
         return True
 
     def _is_trading_time(self, now: datetime) -> bool:
-        if not self.is_open_day(now.date()):
+        calendar_check = self.trading_calendar(now.date())
+        if calendar_check.status is not CalendarStatus.OPEN:
+            if calendar_check.status is CalendarStatus.UNKNOWN:
+                self._warn_unknown_calendar_once(now.date(), calendar_check.reason)
             return False
 
         current = now.timetz().replace(tzinfo=None)
@@ -162,6 +181,18 @@ class InvestmentAssistantService:
                 return (channel, chat_id)
 
         return None
+
+    def _warn_unknown_calendar_once(self, day: date, reason: str) -> None:
+        marker = (day, reason)
+        if self._last_calendar_warning == marker:
+            return
+
+        logger.warning(
+            "Investment scan skipped because trading calendar could not confirm {}: {}",
+            day,
+            reason,
+        )
+        self._last_calendar_warning = marker
 
     def _current_time(self) -> datetime:
         try:

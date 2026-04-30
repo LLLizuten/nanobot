@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from nanobot.investment import data as investment_data
+from nanobot.investment.calendar import CalendarStatus, TradingCalendarCheck
 from nanobot.investment.market import Bar
 from nanobot.investment.models import InvestmentState, WatchlistEntry
 from nanobot.investment.service import InvestmentAssistantService
@@ -193,6 +194,78 @@ def test_service_rejects_trading_windows_on_closed_day(tmp_path, moment: datetim
     assert service._is_trading_time(moment) is False
 
 
+def test_service_accepts_open_calendar_check_inside_trading_window(tmp_path) -> None:
+    service = InvestmentAssistantService(
+        workspace=tmp_path,
+        session_manager=None,
+        bus=_FakeBus(),
+        market_data=_SequenceMarketData([_make_bars()]),
+        trading_calendar=lambda _day: TradingCalendarCheck(
+            status=CalendarStatus.OPEN,
+            reason="listed trading day",
+        ),
+    )
+
+    assert service._is_trading_time(datetime(2026, 5, 9, 10, 0)) is True
+
+
+def test_service_rejects_closed_calendar_check_inside_trading_window(tmp_path) -> None:
+    service = InvestmentAssistantService(
+        workspace=tmp_path,
+        session_manager=None,
+        bus=_FakeBus(),
+        market_data=_SequenceMarketData([_make_bars()]),
+        trading_calendar=lambda _day: TradingCalendarCheck(
+            status=CalendarStatus.CLOSED,
+            reason="not listed as trading day",
+        ),
+    )
+
+    assert service._is_trading_time(datetime(2026, 5, 5, 10, 0)) is False
+
+
+def test_service_rejects_unknown_calendar_check_inside_trading_window(tmp_path) -> None:
+    service = InvestmentAssistantService(
+        workspace=tmp_path,
+        session_manager=None,
+        bus=_FakeBus(),
+        market_data=_SequenceMarketData([_make_bars()]),
+        trading_calendar=lambda _day: TradingCalendarCheck(
+            status=CalendarStatus.UNKNOWN,
+            reason="outside loaded trading calendar range",
+        ),
+    )
+
+    assert service._is_trading_time(datetime(2027, 1, 4, 10, 0)) is False
+
+
+def test_service_deduplicates_unknown_calendar_warnings(tmp_path, monkeypatch) -> None:
+    warnings = []
+
+    def _warning(message, *args):
+        warnings.append((message, args))
+
+    monkeypatch.setattr("nanobot.investment.service.logger.warning", _warning)
+    service = InvestmentAssistantService(
+        workspace=tmp_path,
+        session_manager=None,
+        bus=_FakeBus(),
+        market_data=_SequenceMarketData([_make_bars()]),
+        trading_calendar=lambda _day: TradingCalendarCheck(
+            status=CalendarStatus.UNKNOWN,
+            reason="outside loaded trading calendar range",
+        ),
+    )
+
+    assert service._is_trading_time(datetime(2027, 1, 4, 10, 0)) is False
+    assert service._is_trading_time(datetime(2027, 1, 4, 10, 30)) is False
+    assert service._is_trading_time(datetime(2027, 1, 5, 10, 0)) is False
+
+    assert len(warnings) == 2
+    assert warnings[0][1] == (date(2027, 1, 4), "outside loaded trading calendar range")
+    assert warnings[1][1] == (date(2027, 1, 5), "outside loaded trading calendar range")
+
+
 @pytest.mark.asyncio
 async def test_scan_once_publishes_only_once_per_completed_cycle(tmp_path) -> None:
     _seed_state(tmp_path)
@@ -203,6 +276,7 @@ async def test_scan_once_publishes_only_once_per_completed_cycle(tmp_path) -> No
         bus=bus,
         market_data=_SequenceMarketData([_make_bars(), _make_bars()]),
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -231,6 +305,7 @@ async def test_scan_once_publishes_new_cycle_with_snapshot_diff(tmp_path) -> Non
             ]
         ),
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -260,6 +335,7 @@ async def test_scan_once_disables_future_scans_after_dependency_error(tmp_path) 
         bus=_FakeBus(),
         market_data=market_data,
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -290,6 +366,7 @@ async def test_scan_once_does_not_disable_future_scans_after_transient_runtime_e
         bus=bus,
         market_data=market_data,
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -316,6 +393,7 @@ async def test_scan_once_skips_publish_when_no_enabled_external_channel(tmp_path
         bus=bus,
         market_data=_SequenceMarketData([_make_bars()]),
         enabled_channels={"discord"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     published = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -412,6 +490,7 @@ async def test_scan_once_preserves_formal_snapshot_when_other_symbol_temporarily
         bus=bus,
         market_data=market_data,
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))
@@ -451,6 +530,7 @@ async def test_scan_once_republishes_when_same_cycle_data_arrives_for_late_symbo
         bus=bus,
         market_data=market_data,
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 11, 30))
@@ -482,6 +562,7 @@ async def test_scan_once_republishes_when_symbol_late_arrives_in_same_cycle(tmp_
         bus=bus,
         market_data=market_data,
         enabled_channels={"telegram", "weixin"},
+        is_open_day=lambda day: day == date(2026, 4, 27),
     )
 
     first = await service.scan_once(now=datetime(2026, 4, 27, 10, 35))

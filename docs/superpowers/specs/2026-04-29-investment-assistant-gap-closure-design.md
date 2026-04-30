@@ -265,8 +265,12 @@
   - `exit` 覆盖近期有效突破后连续两根已收盘 K 线跌回突破参考位下方、以及价格和短期均线同步失守中期均线的结构破坏状态。
   - 已补充健康趋势低于近期高点不误判 `exit`、陈旧突破不误判 `exit` 等回归测试。
   - 已通过 `uv run --python 3.12 --extra dev pytest tests/investment/test_signals.py tests/investment/test_decisions.py tests/investment/test_service.py -q` 验证。
-- `[待完成]` 真实交易日历补齐
-  - 后台调度仍需接入中国市场真实交易日历，以覆盖法定休市日与调休交易日。
+- `[已完成]` 真实交易日历补齐
+  - 已新增基于 AkShare `tool_trade_date_hist_sina()` 的中国市场交易日历适配层。
+  - 后台调度已从简单工作日判断切换为真实交易日历判断，支持法定休市日跳过与调休交易日播报。
+  - 交易日历返回未知或数据源不可用时，调度层按“保守不播报”处理。
+  - 已保留 `is_open_day` 测试注入能力，便于既有服务测试继续精确控制开市日。
+  - 已通过 `uv run --python 3.12 --extra dev pytest tests/investment/test_calendar.py tests/investment/test_service.py tests/cli/test_commands.py::test_build_investment_service_uses_workspace_scoped_dependencies tests/cli/test_commands.py::test_build_investment_service_uses_china_market_timezone_when_global_timezone_is_non_china -q` 验证。
 
 ## 非目标说明
 

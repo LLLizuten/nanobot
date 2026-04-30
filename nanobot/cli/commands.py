@@ -541,6 +541,7 @@ def _build_investment_service(
     enabled_channels: set[str],
 ):
     """Create the investment scan service with workspace-scoped dependencies."""
+    from nanobot.investment.calendar import AkshareTradingCalendar
     from nanobot.investment.data import CHINA_MARKET_TIMEZONE, AkshareMarketDataProvider
     from nanobot.investment.service import InvestmentAssistantService
 
@@ -551,6 +552,7 @@ def _build_investment_service(
         market_data=AkshareMarketDataProvider(timezone=CHINA_MARKET_TIMEZONE),
         timezone=CHINA_MARKET_TIMEZONE,
         enabled_channels=enabled_channels,
+        trading_calendar=AkshareTradingCalendar().check_day,
     )
 
 

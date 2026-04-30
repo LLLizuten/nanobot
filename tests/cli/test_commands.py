@@ -948,6 +948,7 @@ def test_build_investment_service_uses_workspace_scoped_dependencies(tmp_path: P
     assert service.enabled_channels == {"weixin", "telegram"}
     assert service.market_data.__class__.__name__ == "AkshareMarketDataProvider"
     assert service.market_data.timezone == "Asia/Shanghai"
+    assert service.trading_calendar.__self__.__class__.__name__ == "AkshareTradingCalendar"
 
 
 def test_build_investment_service_uses_china_market_timezone_when_global_timezone_is_non_china(
