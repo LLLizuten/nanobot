@@ -17,6 +17,7 @@ Start here for setup, everyday usage, and deployment.
 | Multiple instances | [`multiple-instances.md`](./multiple-instances.md) | Run isolated bots with separate configs and workspaces |
 | CLI reference | [`cli-reference.md`](./cli-reference.md) | Core CLI commands and common entrypoints |
 | In-chat commands | [`chat-commands.md`](./chat-commands.md) | Slash commands and periodic task behavior |
+| 投资助手 | [`investment-assistant.md`](./investment-assistant.md) | 自选池、持仓、信号与交易日历提醒 |
 | OpenAI-compatible API | [`openai-api.md`](./openai-api.md) | Local API endpoints, request format, and file uploads |
 | Deployment | [`deployment.md`](./deployment.md) | Docker and Linux service setup |
 
