@@ -36,6 +36,29 @@ nanobot gateway
 - 场内 ETF 分钟 K 线
 - 中国市场交易日历
 
+## 使用 JQData 作为主行情源
+
+如果你希望使用聚宽 JQData 作为主行情源，并在 JQData 查询失败时回退到 AkShare，可以安装额外依赖：
+
+```bash
+pip install -e ".[investment,investment-jqdata]"
+```
+
+配置示例：
+
+```json
+{
+  "investment": {
+    "marketDataProvider": "jqdata",
+    "fallbackProvider": "akshare",
+    "jqdataUsername": "你的聚宽账号",
+    "jqdataPassword": "${JQDATA_PASSWORD}"
+  }
+}
+```
+
+JQData 使用聚宽证券代码格式。nanobot 会把常见 A 股/ETF 六位代码自动转换为 `600519.XSHG`、`159992.XSHE` 这类格式。
+
 ## AkShare 是否需要代理
 
 通常不需要。是否需要代理取决于运行机器能否稳定访问 AkShare 调用的上游公开数据源。

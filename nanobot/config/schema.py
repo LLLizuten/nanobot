@@ -165,6 +165,15 @@ class GatewayConfig(Base):
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
 
 
+class InvestmentConfig(Base):
+    """Investment assistant data-source configuration."""
+
+    market_data_provider: Literal["akshare", "jqdata"] = "akshare"
+    fallback_provider: Literal["none", "akshare"] = "none"
+    jqdata_username: str = ""
+    jqdata_password: str = ""
+
+
 class WebSearchConfig(Base):
     """Web search tool configuration."""
 
@@ -232,6 +241,7 @@ class Config(BaseSettings):
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
+    investment: InvestmentConfig = Field(default_factory=InvestmentConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
 
     @property

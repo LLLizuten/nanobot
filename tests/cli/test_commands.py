@@ -971,6 +971,32 @@ def test_build_investment_service_uses_china_market_timezone_when_global_timezon
     assert service.market_data.timezone == "Asia/Shanghai"
 
 
+def test_build_investment_service_uses_jqdata_primary_with_akshare_fallback(
+    tmp_path: Path,
+) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path / "workspace")
+    config.investment.market_data_provider = "jqdata"
+    config.investment.jqdata_username = "user"
+    config.investment.jqdata_password = "pass"
+    config.investment.fallback_provider = "akshare"
+
+    service = commands_module._build_investment_service(
+        config=config,
+        bus=object(),
+        session_manager=object(),
+        enabled_channels={"weixin"},
+    )
+
+    assert service.market_data.__class__.__name__ == "FallbackMarketDataProvider"
+    assert [provider.__class__.__name__ for provider in service.market_data.providers] == [
+        "JqdataMarketDataProvider",
+        "AkshareMarketDataProvider",
+    ]
+    assert service.market_data.providers[0].username == "user"
+    assert service.market_data.providers[0].password == "pass"
+
+
 def test_gateway_cron_evaluator_receives_scheduled_reminder_context(
     monkeypatch, tmp_path: Path
 ) -> None:

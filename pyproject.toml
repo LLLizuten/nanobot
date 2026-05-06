@@ -92,6 +92,9 @@ langsmith = [
 investment = [
     "akshare>=1.16.72,<2.0.0",
 ]
+investment-jqdata = [
+    "jqdatasdk>=1.9.7,<2.0.0",
+]
 pdf = [
     "pymupdf>=1.25.0",
 ]

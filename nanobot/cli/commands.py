@@ -542,18 +542,43 @@ def _build_investment_service(
 ):
     """Create the investment scan service with workspace-scoped dependencies."""
     from nanobot.investment.calendar import AkshareTradingCalendar
-    from nanobot.investment.data import CHINA_MARKET_TIMEZONE, AkshareMarketDataProvider
+    from nanobot.investment.data import CHINA_MARKET_TIMEZONE
     from nanobot.investment.service import InvestmentAssistantService
+
+    market_data = _build_investment_market_data(config)
 
     return InvestmentAssistantService(
         workspace=config.workspace_path,
         session_manager=session_manager,
         bus=bus,
-        market_data=AkshareMarketDataProvider(timezone=CHINA_MARKET_TIMEZONE),
+        market_data=market_data,
         timezone=CHINA_MARKET_TIMEZONE,
         enabled_channels=enabled_channels,
         trading_calendar=AkshareTradingCalendar().check_day,
     )
+
+
+def _build_investment_market_data(config: Config):
+    from nanobot.investment.data import (
+        CHINA_MARKET_TIMEZONE,
+        AkshareMarketDataProvider,
+        FallbackMarketDataProvider,
+        JqdataMarketDataProvider,
+    )
+
+    investment = config.investment
+    akshare = AkshareMarketDataProvider(timezone=CHINA_MARKET_TIMEZONE)
+    if investment.market_data_provider == "akshare":
+        return akshare
+
+    jqdata = JqdataMarketDataProvider(
+        username=investment.jqdata_username,
+        password=investment.jqdata_password,
+        timezone=CHINA_MARKET_TIMEZONE,
+    )
+    if investment.fallback_provider == "akshare":
+        return FallbackMarketDataProvider([jqdata, akshare])
+    return jqdata
 
 
 # ============================================================================

@@ -2,12 +2,29 @@ from datetime import datetime
 
 import pytest
 
-from nanobot.investment.data import AkshareMarketDataProvider
+from nanobot.investment.data import (
+    AkshareMarketDataProvider,
+    FallbackMarketDataProvider,
+    JqdataMarketDataProvider,
+)
+from nanobot.investment.market import Bar
 
 
 class _FakeFrame:
     def __init__(self, rows):
         self._rows = rows
+
+    def to_dict(self, orient="records"):
+        assert orient == "records"
+        return list(self._rows)
+
+
+class _FakeJqFrame:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def reset_index(self):
+        return self
 
     def to_dict(self, orient="records"):
         assert orient == "records"
@@ -61,6 +78,171 @@ def test_provider_normalizes_a_share_rows() -> None:
     assert bars[0].complete is True
 
 
+def test_jqdata_provider_normalizes_etf_rows_and_symbol_suffix() -> None:
+    fake_rows = [
+        {
+            "datetime": datetime(2026, 4, 26, 10, 30),
+            "open": 1.0,
+            "high": 1.1,
+            "low": 0.9,
+            "close": 1.05,
+            "volume": 1200,
+        }
+    ]
+
+    class _FakeJqdata:
+        @staticmethod
+        def auth(username, password):
+            assert username == "user"
+            assert password == "pass"
+
+        @staticmethod
+        def get_price(security, frequency, count, fields, skip_paused, fq):
+            assert security == "159992.XSHE"
+            assert frequency == "60m"
+            assert count == 2
+            assert fields == ["open", "high", "low", "close", "volume"]
+            assert skip_paused is True
+            assert fq == "none"
+            return _FakeJqFrame(fake_rows)
+
+    provider = JqdataMarketDataProvider(
+        username="user",
+        password="pass",
+        loader=lambda: _FakeJqdata,
+        now_provider=lambda: datetime(2026, 4, 26, 11, 30),
+    )
+
+    bars = provider.fetch_completed_bars(
+        symbol="159992",
+        kind="etf",
+        period_minutes=60,
+        limit=2,
+    )
+
+    assert len(bars) == 1
+    assert bars[0].symbol == "159992"
+    assert bars[0].kind == "etf"
+    assert bars[0].ends_at == datetime(2026, 4, 26, 10, 30)
+    assert bars[0].close == 1.05
+    assert bars[0].complete is True
+
+
+def test_jqdata_provider_uses_shanghai_suffix_for_six_prefix_symbols() -> None:
+    seen = {}
+
+    class _FakeJqdata:
+        @staticmethod
+        def auth(username, password):
+            return None
+
+        @staticmethod
+        def get_price(security, **_kwargs):
+            seen["security"] = security
+            return _FakeJqFrame([])
+
+    provider = JqdataMarketDataProvider(
+        username="user",
+        password="pass",
+        loader=lambda: _FakeJqdata,
+    )
+
+    provider.fetch_completed_bars(symbol="600519", kind="stock", period_minutes=60, limit=1)
+
+    assert seen["security"] == "600519.XSHG"
+
+
+def test_jqdata_provider_raises_clear_error_when_optional_dependency_is_missing() -> None:
+    def _raise_import_error():
+        raise ImportError("jqdatasdk not installed")
+
+    provider = JqdataMarketDataProvider(username="user", password="pass", loader=_raise_import_error)
+
+    with pytest.raises(RuntimeError, match=r'pip install -e "\.\[investment-jqdata\]"'):
+        provider.fetch_completed_bars(
+            symbol="159992",
+            kind="etf",
+            period_minutes=60,
+            limit=1,
+        )
+
+
+def test_fallback_provider_uses_secondary_when_primary_fails() -> None:
+    expected = [
+        Bar(
+            symbol="159992",
+            kind="etf",
+            ends_at=datetime(2026, 4, 26, 10, 30),
+            open=1.0,
+            high=1.1,
+            low=0.9,
+            close=1.05,
+            volume=1200,
+            complete=True,
+        )
+    ]
+
+    class _FailingProvider:
+        def fetch_completed_bars(self, **_kwargs):
+            raise RuntimeError("primary unavailable")
+
+    class _SecondaryProvider:
+        def __init__(self):
+            self.calls = []
+
+        def fetch_completed_bars(self, **kwargs):
+            self.calls.append(kwargs)
+            return expected
+
+    secondary = _SecondaryProvider()
+    provider = FallbackMarketDataProvider([_FailingProvider(), secondary])
+
+    bars = provider.fetch_completed_bars(
+        symbol="159992",
+        kind="etf",
+        period_minutes=60,
+        limit=1,
+    )
+
+    assert bars == expected
+    assert secondary.calls[0]["symbol"] == "159992"
+
+
+def test_fallback_provider_does_not_call_secondary_when_primary_succeeds() -> None:
+    expected = [
+        Bar(
+            symbol="600519",
+            kind="stock",
+            ends_at=datetime(2026, 4, 26, 10, 30),
+            open=10,
+            high=11,
+            low=9,
+            close=10.5,
+            volume=100,
+            complete=True,
+        )
+    ]
+
+    class _PrimaryProvider:
+        def fetch_completed_bars(self, **_kwargs):
+            return expected
+
+    class _UnexpectedSecondaryProvider:
+        def fetch_completed_bars(self, **_kwargs):
+            raise AssertionError("secondary should not be called")
+
+    provider = FallbackMarketDataProvider([_PrimaryProvider(), _UnexpectedSecondaryProvider()])
+
+    bars = provider.fetch_completed_bars(
+        symbol="600519",
+        kind="stock",
+        period_minutes=60,
+        limit=1,
+    )
+
+    assert bars == expected
+
+
 def test_provider_uses_etf_endpoint() -> None:
     fake_rows = [
         {
@@ -96,6 +278,23 @@ def test_provider_uses_etf_endpoint() -> None:
     assert len(bars) == 1
     assert bars[0].kind == "etf"
     assert bars[0].close == 4.0
+
+
+def test_provider_wraps_upstream_fetch_errors_as_runtime_error() -> None:
+    class _FakeAkshare:
+        @staticmethod
+        def fund_etf_hist_min_em(symbol, period, adjust):
+            raise ConnectionError("remote closed connection")
+
+    provider = AkshareMarketDataProvider(loader=lambda: _FakeAkshare)
+
+    with pytest.raises(RuntimeError, match="market data fetch failed for 159992"):
+        provider.fetch_completed_bars(
+            symbol="159992",
+            kind="etf",
+            period_minutes=60,
+            limit=1,
+        )
 
 
 def test_provider_raises_clear_error_when_optional_dependency_is_missing() -> None:
