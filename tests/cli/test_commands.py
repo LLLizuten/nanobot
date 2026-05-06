@@ -1241,6 +1241,8 @@ def test_gateway_starts_and_stops_investment_service(monkeypatch, tmp_path: Path
             lifecycle.append("heartbeat.stop")
 
     class _FakeInvestmentService:
+        market_data = object()
+
         async def start(self) -> None:
             lifecycle.append("investment.start")
 
@@ -1299,6 +1301,117 @@ def test_gateway_starts_and_stops_investment_service(monkeypatch, tmp_path: Path
         "agent.stop",
         "channels.stop_all",
     ]
+
+
+def test_gateway_exposes_investment_market_data_to_agent(monkeypatch, tmp_path: Path) -> None:
+    config_file = _write_instance_config(tmp_path)
+    config = Config()
+    bus = object()
+    session_manager = object()
+    market_data = object()
+    seen: dict[str, object] = {}
+
+    class _FakeDream:
+        model = None
+        max_batch_size = 0
+        max_iterations = 0
+        annotate_line_ages = False
+
+    class _FakeAgentLoop:
+        def __init__(self, **_kwargs) -> None:
+            self.model = "test-model"
+            self.dream = _FakeDream()
+            self.tools = {}
+            seen["agent"] = self
+
+        async def run(self) -> None:
+            await asyncio.Event().wait()
+
+        async def close_mcp(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+    class _FakeChannelManager:
+        def __init__(self, _config, _bus, **_kwargs) -> None:
+            self.enabled_channels = ["weixin"]
+
+        async def start_all(self) -> None:
+            await asyncio.Event().wait()
+
+        async def stop_all(self) -> None:
+            return None
+
+    class _FakeCronService:
+        def __init__(self, _store_path: Path) -> None:
+            self.on_job = None
+
+        async def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+        def status(self) -> dict[str, int]:
+            return {"jobs": 0}
+
+        def register_system_job(self, _job) -> None:
+            return None
+
+    class _FakeHeartbeatService:
+        def __init__(self, **_kwargs) -> None:
+            return None
+
+        async def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+    class _FakeInvestmentService:
+        def __init__(self) -> None:
+            self.market_data = market_data
+
+        async def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            return None
+
+    class _FakeServer:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+        async def serve_forever(self) -> None:
+            raise _StopGatewayError("stop")
+
+    async def _fake_start_server(_handler, _host: str, _port: int):
+        return _FakeServer()
+
+    _patch_cli_command_runtime(
+        monkeypatch,
+        config,
+        message_bus=lambda: bus,
+        session_manager=lambda _workspace: session_manager,
+    )
+    monkeypatch.setattr("nanobot.agent.loop.AgentLoop", _FakeAgentLoop)
+    monkeypatch.setattr("nanobot.channels.manager.ChannelManager", _FakeChannelManager)
+    monkeypatch.setattr("nanobot.cron.service.CronService", _FakeCronService)
+    monkeypatch.setattr("nanobot.heartbeat.service.HeartbeatService", _FakeHeartbeatService)
+    monkeypatch.setattr(
+        "nanobot.cli.commands._build_investment_service",
+        lambda **_kwargs: _FakeInvestmentService(),
+    )
+    monkeypatch.setattr("asyncio.start_server", _fake_start_server)
+
+    result = runner.invoke(app, ["gateway", "--config", str(config_file)])
+
+    assert result.exit_code == 0
+    assert seen["agent"].investment_market_data is market_data
 
 
 def test_gateway_workspace_override_does_not_migrate_legacy_cron(

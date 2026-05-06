@@ -796,6 +796,7 @@ def _run_gateway(
         session_manager=session_manager,
         enabled_channels=set(channels.enabled_channels),
     )
+    agent.investment_market_data = investment_service.market_data
 
     def _pick_heartbeat_target() -> tuple[str, str]:
         """Pick a routable channel/chat target for heartbeat-triggered messages."""
